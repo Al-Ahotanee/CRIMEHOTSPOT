@@ -1,8 +1,11 @@
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  SENTINEL-NW  |  Enterprise Crime Hotspot Intelligence Platform             ║
-║  NW Nigeria — Katsina · Zamfara · Sokoto · Kaduna                          ║
-║  Flask + SQLite + GradientBoosting + ACLED                                 ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+# -*- coding: utf-8 -*-
+"""
+==============================================================================
+  SENTINEL-NW  |  Enterprise Crime Hotspot Intelligence Platform             
+  NW Nigeria — Katsina · Zamfara · Sokoto · Kaduna                          
+  Flask + SQLite + GradientBoosting + ACLED                                 
+==============================================================================
+"""
 
 from flask import Flask, jsonify, request, send_from_directory, g
 from flask_cors import CORS
@@ -18,7 +21,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 import warnings
 warnings.filterwarnings("ignore")
 
-# ─── CONFIG ───────────────────────────────────────────────────────────────────
+# --- CONFIG -------------------------------------------------------------------
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 # PRODUCTION READY: Allows mounting a Render Persistent Disk via Environment Variables to save DB across restarts
 DB_PATH     = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "sentinel.db"))
@@ -31,7 +34,7 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config["SECRET_KEY"] = SECRET_KEY
 
-# ─── GLOBAL STATE ─────────────────────────────────────────────────────────────
+# --- GLOBAL STATE -------------------------------------------------------------
 _models   = {}
 _scaler   = None
 _le_state = None
@@ -41,9 +44,9 @@ _reports  = {}
 _lock     = threading.Lock()
 _rate_cache = {}  # ip -> [timestamps]
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # DATABASE INIT
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 def get_db():
     db = getattr(g, "_database", None)
     if db is None:
@@ -167,9 +170,9 @@ def init_db():
             pass
         conn.commit()
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # ML PIPELINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 def generate_synthetic_data():
     np.random.seed(42)
     n = 10000
@@ -312,9 +315,9 @@ def generate_alerts(df):
                   f"Bandit/terrorist incidents spiked to {cnt} in {state}. Intelligence assets activated."))
         conn.commit()
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # AUTH MIDDLEWARE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 def hash_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
@@ -392,9 +395,9 @@ def audit(action, resource=None, payload=None, success=True):
     except:
         pass
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # ROUTES — AUTH
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 @app.route("/api/auth/login", methods=["POST"])
 @rate_limit
 def login():
@@ -440,9 +443,9 @@ def logout():
 def me():
     return jsonify(request.current_user)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # ROUTES — DASHBOARD / STATS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 @app.route("/api/dashboard/summary", methods=["GET"])
 @require_auth
 @rate_limit
@@ -493,9 +496,9 @@ def dashboard_summary():
         "by_actor": [dict(r) for r in by_actor],
     })
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # ROUTES — INCIDENTS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 @app.route("/api/incidents", methods=["GET"])
 @require_auth
 @rate_limit
@@ -572,9 +575,9 @@ def hot_grids():
         rows = conn.execute(sql, params).fetchall()
     return jsonify({"grids": [dict(r) for r in rows]})
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # ROUTES — RISK PREDICTION
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 @app.route("/api/predict", methods=["POST"])
 @require_auth
 @rate_limit
@@ -648,9 +651,9 @@ def predict():
         }
     })
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # ROUTES — ALERTS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 @app.route("/api/alerts", methods=["GET"])
 @require_auth
 def get_alerts():
@@ -668,9 +671,9 @@ def mark_read(alert_id):
         conn.execute("UPDATE alerts SET is_read=1 WHERE id=?", (alert_id,))
     return jsonify({"success": True})
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # ROUTES — ADMIN
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 @app.route("/api/admin/users", methods=["GET"])
 @require_admin
 def list_users():
@@ -749,9 +752,9 @@ def risk_history():
         """, (user["user_id"],)).fetchall()
     return jsonify({"history": [dict(r) for r in rows]})
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # STATIC — serve SPA
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_spa(path):
@@ -759,13 +762,13 @@ def serve_spa(path):
         return jsonify({"error":"Not found"}), 404
     return send_from_directory(".", "index.html")
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # PRODUCTION BOOTSTRAP (GUNICORN / RENDER WSGI SUPPORT)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 def startup():
-    print("╔══════════════════════════════════════════╗")
-    print("║   SENTINEL-NW  |  Intelligence Platform  ║")
-    print("╚══════════════════════════════════════════╝")
+    print("==========================================")
+    print("   SENTINEL-NW  |  Intelligence Platform  ")
+    print("==========================================")
     init_db()
     # Train ML in background so server starts fast in production WSGI environments
     ml_thread = threading.Thread(target=init_ml, daemon=True)
@@ -774,9 +777,9 @@ def startup():
 # This is executed instantly when the module is imported by Gunicorn
 startup()
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # LOCAL BOOT (For local development via python app.py)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 if __name__ == "__main__":
     # Ensure Render's dynamically assigned PORT is used
     port = int(os.environ.get("PORT", 5000))
