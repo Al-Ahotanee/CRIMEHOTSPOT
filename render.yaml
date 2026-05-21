@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sentinel-nw
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    # 1 worker, 4 threads prevents ML training from crashing Render's memory limits
+    startCommand: "gunicorn app:app -w 1 --threads 4"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: SECRET_KEY
+        generateValue: true
+        
+    # NOTE: If you upgrade to a paid Render plan, uncomment the lines below 
+    # to mount a persistent disk so your SQLite database survives restarts!
+    # - key: DB_PATH
+    #   value: /data/sentinel.db
+    # disk:
+    #   name: sentinel-data
+    #   mountPath: /data
+    #   sizeGB: 1
