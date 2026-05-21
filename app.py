@@ -44,6 +44,26 @@ _reports  = {}
 _lock     = threading.Lock()
 _rate_cache = {}  # ip -> [timestamps]
 
+_startup_done = False
+_startup_lock = threading.Lock()
+
+@app.before_request
+def ensure_startup():
+    """
+    Render uses Gunicorn which forks worker processes. Threads created before 
+    the fork (at module import) are destroyed. This ensures the ML thread 
+    starts safely INSIDE the worker process on the very first request.
+    """
+    global _startup_done
+    if not _startup_done:
+        with _startup_lock:
+            if not _startup_done:
+                print("🚀 Booting database and ML pipeline safely inside worker process...")
+                init_db()
+                ml_thread = threading.Thread(target=init_ml, daemon=True)
+                ml_thread.start()
+                _startup_done = True
+
 # ==============================================================================
 # DATABASE INIT
 # ==============================================================================
@@ -761,21 +781,6 @@ def serve_spa(path):
     if path.startswith("api/"):
         return jsonify({"error":"Not found"}), 404
     return send_from_directory(".", "index.html")
-
-# ==============================================================================
-# PRODUCTION BOOTSTRAP (GUNICORN / RENDER WSGI SUPPORT)
-# ==============================================================================
-def startup():
-    print("==========================================")
-    print("   SENTINEL-NW  |  Intelligence Platform  ")
-    print("==========================================")
-    init_db()
-    # Train ML in background so server starts fast in production WSGI environments
-    ml_thread = threading.Thread(target=init_ml, daemon=True)
-    ml_thread.start()
-
-# This is executed instantly when the module is imported by Gunicorn
-startup()
 
 # ==============================================================================
 # LOCAL BOOT (For local development via python app.py)
